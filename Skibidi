@@ -1,0 +1,49 @@
+import numpy as np
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
+def g_tau_model(tau, A, T_t, tau_t, tau_d1):
+    # Triplet state component
+    triplet = 1 + (T_t * np.exp(-tau / tau_t)) / (1 - T_t)
+    # 2D Diffusion component
+    diffusion = 1 / (1 + (tau / tau_d1))
+    
+    return A * triplet * diffusion + 1
+
+# p0 = [A, T_t, tau_t, tau_d1]
+# Replace these with realistic estimates for your experiment
+initial_guesses = [1.0, 0.1, 0.005, 0.05]
+
+# Bounds help prevent errors (e.g., T_t must be between 0 and 1)
+param_bounds = ([0, 0, 0, 0], [np.inf, 0.99, np.inf, np.inf])
+
+popt, pcov = curve_fit(
+    g_tau_model, 
+    tau_data, 
+    G_data, 
+    p0=initial_guesses, 
+    bounds=param_bounds
+)
+
+# Extract your results
+A_fit, Tt_fit, taut_fit, taud1_fit = popt
+
+# 1. Generate smooth x-values for a clean curve
+tau_fit = np.logspace(np.log10(tau_data.min()), np.log10(tau_data.max()), 500)
+
+# 2. Calculate the fitted curve using our popt parameters
+G_fit = g_tau_model(tau_fit, *popt)
+
+# 3. Create the plot
+plt.figure(figsize=(8, 5))
+plt.scatter(tau_data, G_data, s=10, label='Raw Data', color='gray', alpha=0.5)
+plt.plot(tau_fit, G_fit, label='Best Fit', color='red', linewidth=2)
+
+# 4. Format for FCS (Log scale is standard)
+plt.xscale('log')
+plt.xlabel(r'$\tau$ (Time)')
+plt.ylabel(r'$G(\tau)$')
+plt.title('FCS Model Fit: Triplet + 2D Diffusion')
+plt.legend()
+plt.grid(True, which="both", ls="-", alpha=0.2)
+plt.show()
