@@ -2,10 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 import random
+from scipy.optimize import curve_fit
 
 # 1. Load the file
 # 'skiprows=1' removes the header text (Correlation_time_ms, G_t, Err)
-file_path = 'Dat files/atto5651nM_1CP.dat'
+file_path = 'Dat files/atto5651nM_10CP.dat'
 data = np.loadtxt(file_path, skiprows=2)
 
 # 2. Extract the columns
@@ -27,11 +28,18 @@ plt.scatter(tau_data, G_data, s=10, color='blue', alpha=0.6, label='Experimental
 plt.xscale('log')
 
 # 3. Add visual anchors and labels
-plt.xlabel('Lag Time (ms)')
+plt.xlabel('Time (ms)')
 plt.ylabel('Autocorrelation G(t)')
 plt.title('FCS Data: Log-Linear Plot')
+plt.plot(tau_data, G_data, label='Experimental graph')
 plt.legend()
-plt.show()
+
+def fcs_3d_model(tau, A, T_t, tau_t, tau_d1, S, offset):
+    # Triplet Component
+    triplet = 1 + (T_t * np.exp(-tau / tau_t)) / (1 - T_t)
+    # 3D Diffusion Component
+    diffusion = 1 / ((1 + tau/tau_d1) * np.sqrt(1 + tau/(tau_d1 * S**2)))
+    return A * triplet * diffusion + offset
 
 p0 = [y.max(), 0.2, 0.005, 0.5, 5.0, 0.0]
 bounds = (0, [np.inf, 0.99, np.inf, np.inf, 20.0, 1.0])
@@ -44,16 +52,14 @@ x_fit = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
 y_fit = fcs_3d_model(x_fit, *popt)
 
 # 6. Plotting
-plt.figure(figsize=(9, 6))
 plt.scatter(x, y, s=10, color='gray', alpha=0.4, label='Data Points')
-plt.plot(x_fit, y_fit, 'r-', linewidth=2, label='3D Fit')
+plt.plot(x_fit, y_fit, 'r-', label='3D Fit')
 
 plt.xscale('log')
-plt.xlabel('Lag Time (ms)')
+plt.xlabel('Time (ms)')
 plt.ylabel('G(t)')
 plt.title('FCS 3D Model Fit')
 plt.legend()
-plt.grid(True, which="both", alpha=0.2)
 plt.show()
 
 # 7. Print Results

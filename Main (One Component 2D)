@@ -1,0 +1,67 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
+file_path = 'Dat files/atto5651nM_10CP.dat'
+data = np.loadtxt(file_path, skiprows=2)
+
+# 2. Extract the columns
+tau_data = data[:, 0]  # First column: Correlation_time_ms
+G_data = data[:, 1]    # Second column: G_t
+
+x = tau_data
+y = G_data
+
+mask = tau_data > 0
+tau_data = tau_data[mask]
+G_data = G_data[mask]
+
+# 1. Create the plot using your specific variables
+plt.figure(figsize=(8, 5))
+plt.scatter(tau_data, G_data, s=10, color='blue', alpha=0.6, label='Experimental Data')
+
+# 2. TRANSFORM THE SCALE (This fixes the "L" shape)
+plt.xscale('log')
+
+# 3. Add visual anchors and labels
+plt.xlabel('Lag Time (ms)')
+plt.ylabel('Autocorrelation G(t)')
+plt.title('FCS Data: Log-Linear Plot')
+plt.plot(tau_data, G_data, linewidth=2, label='Experimental graph')
+plt.legend()
+
+# 1. Define the 2D Model (1 component + triplet)
+def fcs_2d_model(tau, A, T_t, tau_t, tau_d, offset):
+    # Triplet Component (stays the same)
+    triplet = 1 + (T_t * np.exp(-tau / tau_t)) / (1 - T_t)
+    
+    # 2D Diffusion Component (simplified)
+    diffusion = 1 / (1 + tau / tau_d)
+    
+    return A * triplet * diffusion + offset
+
+# 2. Setup your data (Using your imported variables)
+mask = tau_data > 0
+x = tau_data[mask]
+y = G_data[mask]
+
+# 3. Initial Guesses [A, T_t, tau_t, tau_d, offset]
+p0 = [y.max(), 0.2, 0.005, 0.5, 0.0]
+bounds = (0, [np.inf, 0.99, np.inf, np.inf, 1.0])
+
+# 4. Run the Fit
+popt, pcov = curve_fit(fcs_2d_model, x, y, p0=p0, bounds=bounds)
+
+# 5. Plotting
+x_fit = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
+y_fit = fcs_2d_model(x_fit, *popt)
+
+plt.scatter(x, y, s=10, color='black', alpha=0.3, label='Data')
+plt.plot(x_fit, y_fit, 'r-', label='2D One-Component Fit')
+plt.xscale('log')
+plt.xlabel('Time (ms)')
+plt.ylabel('G(t)')
+plt.legend()
+plt.show()
+
+print(f"2D Fit - Tau_d: {popt[3]:.4f} ms")
