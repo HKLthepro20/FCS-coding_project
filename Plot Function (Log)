@@ -1,0 +1,29 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+import random
+
+# 1. Load the file
+# 'skiprows=1' removes the header text (Correlation_time_ms, G_t, Err)
+file_path = 'Dat files/atto5651nM_1CP.dat'
+data = np.loadtxt(file_path, skiprows=2)
+
+# 2. Extract the columns
+tau_data = data[:, 0]  # First column: Correlation_time_ms
+G_data = data[:, 1]    # Second column: G_t
+
+# 1. Create the plot using your specific variables
+plt.figure(figsize=(8, 5))
+plt.scatter(tau_data, G_data, s=10, color='blue', alpha=0.6, label='Experimental Data')
+
+# 2. TRANSFORM THE SCALE (This fixes the "L" shape)
+plt.xscale('log')
+
+# 3. Add visual anchors and labels
+plt.xlabel('Lag Time (ms)')
+plt.ylabel('Autocorrelation G(t)')
+plt.title('FCS Data: Log-Linear Plot')
+plt.legend()
+
+# 4. Render
+plt.show()

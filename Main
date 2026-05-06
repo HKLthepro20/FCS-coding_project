@@ -12,28 +12,51 @@ data = np.loadtxt(file_path, skiprows=2)
 tau_data = data[:, 0]  # First column: Correlation_time_ms
 G_data = data[:, 1]    # Second column: G_t
 
-print(f"Imported {len(tau_data)} data points.")
-print(f"First tau value: {tau_data[0]}")
-
-y = G_data
 x = tau_data
+y = G_data
 
-print (x)
-print (y)
+mask = tau_data > 0
+tau_data = tau_data[mask]
+G_data = G_data[mask]
 
-plt.plot (x, y, label = 'original function')
+# 1. Create the plot using your specific variables
+plt.figure(figsize=(8, 5))
+plt.scatter(tau_data, G_data, s=10, color='blue', alpha=0.6, label='Experimental Data')
+
+# 2. TRANSFORM THE SCALE (This fixes the "L" shape)
+plt.xscale('log')
+
+# 3. Add visual anchors and labels
+plt.xlabel('Lag Time (ms)')
+plt.ylabel('Autocorrelation G(t)')
+plt.title('FCS Data: Log-Linear Plot')
 plt.legend()
 plt.show()
 
-line_model = stats.linregress(x,y)
-slope = line_model[0]
-intercept = line_model[1]
-plt.scatter(x,y)
-print (line_model)
+p0 = [y.max(), 0.2, 0.005, 0.5, 5.0, 0.0]
+bounds = (0, [np.inf, 0.99, np.inf, np.inf, 20.0, 1.0])
 
-fit_line = slope * x + intercept  # type: ignore
-plt.plot (x, fit_line, label = "best fit line")
+# 4. Run the Fit
+popt, pcov = curve_fit(fcs_3d_model, x, y, p0=p0, bounds=bounds)
+
+# 5. Create a smooth curve for plotting
+x_fit = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
+y_fit = fcs_3d_model(x_fit, *popt)
+
+# 6. Plotting
+plt.figure(figsize=(9, 6))
+plt.scatter(x, y, s=10, color='gray', alpha=0.4, label='Data Points')
+plt.plot(x_fit, y_fit, 'r-', linewidth=2, label='3D Fit')
+
+plt.xscale('log')
+plt.xlabel('Lag Time (ms)')
+plt.ylabel('G(t)')
+plt.title('FCS 3D Model Fit')
 plt.legend()
+plt.grid(True, which="both", alpha=0.2)
 plt.show()
-print("Slope:", slope)
-print("Intercept:", c)
+
+# 7. Print Results
+params = ["Amplitude", "Triplet Frac", "Triplet Time", "Diff Time", "Structure", "Offset"]
+for name, val in zip(params, popt):
+    print(f"{name}: {val:.4e}")
