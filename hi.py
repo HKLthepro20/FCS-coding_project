@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import random
 
-x = np.linspace(10, 100, 50)
-y = x + np.random.randint(5,100, 50)
 line_model = stats.linregress(x,y)
 slope = line_model[0]
 intercept = line_model[1]
