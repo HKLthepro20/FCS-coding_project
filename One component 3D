@@ -1,0 +1,40 @@
+import numpy as np
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
+def g_tau_3d(tau, A, T_t, tau_t, tau_d1, S):
+    # Triplet state component (same as 2D)
+    triplet = 1 + (T_t * np.exp(-tau / tau_t)) / (1 - T_t)
+    
+    # 3D Diffusion component (updated)
+    term1 = 1 + (tau / tau_d1)
+    term2 = 1 + (tau / (tau_d1 * (S**2)))
+    diffusion = 1 / (term1 * np.sqrt(term2))
+    
+    return A * triplet * diffusion + 1
+
+# --- INITIAL GUESSES ---
+# [A, T_t, tau_t, tau_d1, S]
+p0 = [1.0, 0.2, 1e-6, 1e-3, 5.0] 
+bounds = (0, [np.inf, 0.99, np.inf, np.inf, 20.0])
+
+# --- THE FIT ---
+popt, pcov = curve_fit(g_tau_3d, tau_data, G_data, p0=p0, bounds=bounds)
+A_f, Tt_f, taut_f, taud1_f, S_f = popt
+
+# --- THE PLOT ---
+tau_fit = np.logspace(np.log10(tau_data.min()), np.log10(tau_data.max()), 1000)
+G_fit = g_tau_3d(tau_fit, *popt)
+
+plt.figure(figsize=(8, 5))
+plt.scatter(tau_data, G_data, s=12, color='black', alpha=0.3, label='Data')
+plt.plot(tau_fit, G_fit, color='blue', label=f'3D Fit (S={S_f:.1f})')
+
+plt.xscale('log')
+plt.xlabel(r'Lag Time $\tau$ (s)')
+plt.ylabel(r'$G(\tau)$')
+plt.legend()
+plt.grid(True, which="both", alpha=0.2)
+plt.show()
+
+print(f"Results: A={A_f:.3f}, Tt={Tt_f:.3f}, Tau_d={taud1_f:.3e}")
