@@ -65,3 +65,22 @@ plt.legend()
 plt.show()
 
 print(f"2D Fit - Tau_d: {popt[3]:.4f} ms")
+
+#residuals
+
+y_pred = fcs_2d_model(x, *popt)
+
+# Compute residuals
+residuals = y - y_pred
+
+# Plot residuals
+plt.figure(figsize=(8, 4))
+plt.axhline(0, color='black', linewidth=1)
+
+plt.plot(x, residuals)
+
+plt.xscale('log')  # important for FCS
+plt.xlabel("Lag time (ms)")
+plt.ylabel("Residual (G_exp - G_fit)")
+plt.title("Residual Plot (FCS Fit)")
+plt.show()
