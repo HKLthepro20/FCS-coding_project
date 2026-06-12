@@ -1,0 +1,66 @@
+#3D_1p (One-component 3D diffusion)
+import numpy as np
+
+def fcs_3D_1p(tau, N, tau_D, K, DC):
+    return (
+        (1 / N)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+        + DC
+    )
+
+#3D_2p (Two-component 3D diffusion)
+def fcs_3D_2p(tau, N, F2, tau_D, tau_D2, K, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+        * (1 + tau / (tau_D2 * K**2))**(-0.5)
+    )
+
+    return (1 / N) * (comp1 + comp2) + DC
+
+#3D_1p1t (One-component + triplet)
+def fcs_3D_1p1t(tau, N, tau_D, K, F_T, tau_T, DC):
+
+    diffusion = (
+        (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * diffusion * triplet + DC
+
+#3D_2p1t (Two-component + triplet)
+def fcs_3D_2p1t(tau, N, F2, tau_D, tau_D2, K, F_T, tau_T, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+        * (1 + tau / (tau_D2 * K**2))**(-0.5)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * (comp1 + comp2) * triplet + DC
