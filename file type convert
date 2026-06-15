@@ -31,10 +31,6 @@ frame_time = 1.2e-6  # seconds
 
 
 if file_extension == ".czi":
-    czi = CziFile(file_path)
-    image, dims = czi.read_image()
-    shape = image.shape
-    print("CZI loaded, shape:", image.shape)
     # === FUNCTIONS ===
     def get_intensity(img, point_index, detector_index):
         """Extract intensity data for a specific detector and point"""
@@ -51,7 +47,7 @@ if file_extension == ".czi":
     czi = CziFile(file_path)
     full_img, dims = czi.read_image()
     shape = full_img.shape
-
+    print("CZI loaded, shape:", full_img.shape)
     # Identify index of the "S" dimension (spots)
     # Handle case where dims might be tuples like ('S', 5) or just strings
     dim_names = []
@@ -101,7 +97,7 @@ if file_extension == ".czi":
         ]
     
         print(f"Intensity data shape for detector 0: {ffp1d[0].shape}")
-    
+        
         # Calculate autocorrelation for each detector
         gtau_p1d = [
             autocorrelate(a=ffp1d[i], deltat=frame_time, normalize=True, m=10)
@@ -125,7 +121,17 @@ if file_extension == ".czi":
         plt.legend()
         plt.tight_layout()
         plt.show()
-    
+    mean_intensity = np.mean(ffp1d, axis=0)
+    time = np.arange(len(mean_intensity)) * frame_time
+    plt.figure(figsize=(8, 5))
+    plt.plot(time, mean_intensity)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Intensity")
+    plt.title("CZI Intensity vs Time")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 elif file_extension == ".ptu":
     ptu = PtuFile(file_path)
@@ -150,12 +156,23 @@ elif file_extension == ".ptu":
     n_detectors = int(channels.max()) + 1
 
     # Build intensity traces per detector
-    intensity = []
+    ffp1d = []
     for d in range(n_detectors):
         mask = channels == d
         counts, _ = np.histogram(times_s[mask], bins=bins)
-        intensity.append(counts)
+        ffp1d.append(counts)
     
+    mean_intensity = np.mean(ffp1d, axis=0)
+    time = np.arange(len(mean_intensity)) * frame_time
+    plt.figure(figsize=(8,5))
+    plt.plot(time, mean_intensity)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Intensity")
+    plt.title("Intensity vs Time")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -164,7 +181,7 @@ elif file_extension == ".ptu":
     frame_time = bin_width
 
     gtau_all = [
-        autocorrelate(a=intensity[d].astype(np.float64),
+        autocorrelate(a=ffp1d[d].astype(np.float64),
                       deltat=frame_time,
                       normalize=True,
                       m=10)
@@ -188,6 +205,8 @@ elif file_extension == ".ptu":
     plt.legend()
     plt.tight_layout()
     plt.show()
+    ptu.close()
+
 
 elif file_extension == ".dat":
     data = np.genfromtxt(file_path, invalid_raise=False)
@@ -212,9 +231,11 @@ with open(output_file, "w") as f:
     
     for i in range(len(tau)):
         f.write(f"{tau[i]:.12e}\t{mean_acf[i]:.12e}\t0\n")
+    
+    f.write("Intensity_time_s\tIntensity\tErr\n")
+    for i in range(len(time)):
+        f.write(f"{time[i]:.12e}\t{mean_intensity[i]:.12e}\t0\n")
 
 print(f"Saved: {output_file}")
 
-# Close PTU file
-ptu.close()
 
