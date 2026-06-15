@@ -1,0 +1,130 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from multipletau import autocorrelate
+from aicspylibczi import CziFile
+import os
+from tkinter import Tk, filedialog
+from ptufile import PtuFile
+
+root = Tk()
+root.withdraw()
+file_path = filedialog.askopenfilename(
+    title="Select a file",
+    filetypes=[
+        ("All supported", "*.czi *.ptu *.dat"),
+        ("CZI files", "*.czi"),
+        ("PTU files", "*.ptu"),
+        ("DAT files", "*.dat"),
+        ("All files", "*.*")
+    ]
+)
+
+if not file_path:
+    raise FileNotFoundError("No file selected. Please select a file to continue.")
+file_extension = os.path.splitext(file_path)[1].lower()
+print(f"Selected file: {file_path}")
+
+# ===== SETTINGS =====
+skip_points = 2    # autocorrelation points to skip
+bin_width = 1.2e-6  # seconds (adjust based on experiment)
+frame_time = 1.2e-6  # seconds
+
+
+if file_extension == ".czi":
+    czi = CziFile(file_path)
+    image, dims = czi.read_image()
+    shape = image.shape
+    print("CZI loaded, shape:", image.shape)
+    # === FUNCTIONS ===
+    def get_intensity(img, point_index, detector_index):
+        """Extract intensity data for a specific detector and point"""
+        # Handle different dimensional structures
+        if img.ndim == 6:
+            return img[detector_index, :, 0, 0, :, :].reshape(-1)
+        elif img.ndim == 7:
+            return img[detector_index, point_index, :, 0, 0, :, :].reshape(-1)
+        else:
+            # Generic approach - use all available dimensions
+            return img[detector_index].reshape(-1)
+  
+    # === LOAD CZI ===
+    czi = CziFile(file_path)
+    full_img, dims = czi.read_image()
+    shape = full_img.shape
+
+    # Identify index of the "S" dimension (spots)
+    # Handle case where dims might be tuples like ('S', 5) or just strings
+    dim_names = []
+    for dim in dims:
+        if isinstance(dim, tuple):
+            dim_names.append(dim[0])
+        else:
+            dim_names.append(dim)
+
+    if "S" in dim_names:
+        s_index = dim_names.index("S")
+        s_dim = shape[s_index]
+        print(f"Found S dimension at index {s_index} with {s_dim} spots")
+    else:
+        s_index = None
+        s_dim = 1
+        print("No S dimension found, assuming 1 spot")
+
+    print(f"Detected {s_dim} spots in file with dimensions {dims} and shape {shape}")
+    print(f"S index: {s_index}, S dimension size: {s_dim}")
+    print(f"Processed dim_names: {dim_names}")
+
+    # === PROCESS EACH SPOT ===
+    for s in range(s_dim):
+        print(f"\n🔹 Processing Spot {s+1}")
+    
+        # Extract data for current spot
+        # Based on your dimensions: (H=32, S=5, T=95, C=1, Z=1, Y=256, X=1024)
+        # We need to be careful about the actual number of dimensions
+        print(f"Full image shape: {full_img.shape}, dims: {dims}")
+    
+        # Find the S dimension index and extract the spot
+        if s_index is not None:
+            # Create indexing tuple dynamically
+            indexer = [slice(None)] * full_img.ndim
+            indexer[s_index] = s
+            spot_img = full_img[tuple(indexer)]
+        else:
+            spot_img = full_img
+    
+        print(f"Spot {s+1} shape after extraction: {spot_img.shape}")
+    
+        # 32 detector channels per spot
+        ffp1d = [
+            get_intensity(spot_img, point_index=0, detector_index=i)
+            for i in range(32)
+        ]
+        def intensity(store, detector):
+            return ffp1d[detector]
+        intensity = [intensity(store=ffp1d, detector=i) for i in range(32)]
+        time = np.arange(len(intensity)) * frame_time
+        plt.figure(figsize=(6,4))
+        plt.plot(time, intensity)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Intensity")
+        plt.title("CZI Intensity vs Time")
+        plt.grid(True)
+        plt.show()
+        
+
+
+            
+    
+        time = np.arange(len(intensity)) * frame_time
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        output_file = os.path.join(downloads_path, f"{base_name}intensity.dat")
+
+        with open(output_file, "w") as f:
+            f.write(f"{base_name}\n")
+            f.write("Intensity_time_s\tIntensity\Hz")
+    
+            for i in range(len()):
+                f.write(f"{intensity[i]:.12e}\t{time[i]:.12e}\t0\n")
+
+print(f"Saved: {output_file}")

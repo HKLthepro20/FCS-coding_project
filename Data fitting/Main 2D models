@@ -1,0 +1,58 @@
+#2D_1p (One-component 2D diffusion)
+def fcs_2D_1p(tau, N, tau_D, DC):
+    return (
+        (1 / N)
+        * (1 + tau / tau_D)**(-1)
+        + DC
+    )
+
+#2D_2p (Two-component 2D diffusion)
+def fcs_2D_2p(tau, N, F2, tau_D, tau_D2, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+    )
+
+    return (1 / N) * (comp1 + comp2) + DC
+
+#2D_1p1t (One-component 2D diffusion + triplet)
+def fcs_2D_1p1t(tau, N, tau_D, F_T, tau_T, DC):
+
+    diffusion = (
+        (1 + tau / tau_D)**(-1)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * diffusion * triplet + DC
+
+#2D_2p1t (Two-component 2D diffusion + triplet)
+def fcs_2D_2p1t(tau, N, F2, tau_D, tau_D2, F_T, tau_T, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * (comp1 + comp2) * triplet + DC
