@@ -1,0 +1,285 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+import random
+from scipy.optimize import curve_fit
+
+file_path = "Dat files/atto5651nM_10CP.dat"
+
+data = np.loadtxt(file_path, skiprows=2)
+
+tau_data = data[:, 0]
+G_data = data[:, 1]
+
+# Remove tau <= 0
+mask = tau_data > 0
+tau_data = tau_data[mask]
+G_data = G_data[mask]
+
+def fcs_3D_1p(tau, N, tau_D, K, DC):
+    return (
+        (1 / N)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+        + DC
+    )
+
+
+def fcs_3D_2p(tau, N, F2, tau_D, tau_D2, K, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+        * (1 + tau / (tau_D2 * K**2))**(-0.5)
+    )
+
+    return (1 / N) * (comp1 + comp2) + DC
+
+
+def fcs_3D_1p1t(tau, N, tau_D, K, F_T, tau_T, DC):
+
+    diffusion = (
+        (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * diffusion * triplet + DC
+
+
+def fcs_3D_2p1t(tau, N, F2, tau_D, tau_D2, K, F_T, tau_T, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+        * (1 + tau / (tau_D * K**2))**(-0.5)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+        * (1 + tau / (tau_D2 * K**2))**(-0.5)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * (comp1 + comp2) * triplet + DC
+
+
+# ---------- 2D MODELS ----------
+
+def fcs_2D_1p(tau, N, tau_D, DC):
+    return (
+        (1 / N)
+        * (1 + tau / tau_D)**(-1)
+        + DC
+    )
+
+
+def fcs_2D_2p(tau, N, F2, tau_D, tau_D2, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+    )
+
+    return (1 / N) * (comp1 + comp2) + DC
+
+
+def fcs_2D_1p1t(tau, N, tau_D, F_T, tau_T, DC):
+
+    diffusion = (
+        (1 + tau / tau_D)**(-1)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * diffusion * triplet + DC
+
+
+def fcs_2D_2p1t(tau, N, F2, tau_D, tau_D2, F_T, tau_T, DC):
+
+    comp1 = (
+        (1 - F2)
+        * (1 + tau / tau_D)**(-1)
+    )
+
+    comp2 = (
+        F2
+        * (1 + tau / tau_D2)**(-1)
+    )
+
+    triplet = (
+        1
+        + (F_T / (1 - F_T))
+        * np.exp(-tau / tau_T)
+    )
+
+    return (1 / N) * (comp1 + comp2) * triplet + DC
+
+
+models = {
+    "3D_1p": fcs_3D_1p,
+    "3D_2p": fcs_3D_2p,
+    "3D_1p1t": fcs_3D_1p1t,
+    "3D_2p1t": fcs_3D_2p1t,
+    "2D_1p": fcs_2D_1p,
+    "2D_2p": fcs_2D_2p,
+    "2D_1p1t": fcs_2D_1p1t,
+    "2D_2p1t": fcs_2D_2p1t,
+}
+
+param_names = {
+    "3D_1p":    ["N", "tau_D", "K", "DC"],
+    "3D_2p":    ["N", "F2", "tau_D", "tau_D2", "K", "DC"],
+    "3D_1p1t":  ["N", "tau_D", "K", "F_T", "tau_T", "DC"],
+    "3D_2p1t":  ["N", "F2", "tau_D", "tau_D2", "K", "F_T", "tau_T", "DC"],
+
+    "2D_1p":    ["N", "tau_D", "DC"],
+    "2D_2p":    ["N", "F2", "tau_D", "tau_D2", "DC"],
+    "2D_1p1t":  ["N", "tau_D", "F_T", "tau_T", "DC"],
+    "2D_2p1t":  ["N", "F2", "tau_D", "tau_D2", "F_T", "tau_T", "DC"],
+}
+
+model_name = input(
+    "Choose model:\n"
+    "3D_1p\n3D_2p\n3D_1p1t\n3D_2p1t\n"
+    "2D_1p\n2D_2p\n2D_1p1t\n2D_2p1t\n\n"
+    "Model: "
+)
+
+model = models[model_name]
+all_params = param_names[model_name]
+
+fixed_values = {}
+
+for p in ["N", "K", "DC"]:
+    if p in all_params:
+        val = input(f"{p} (leave blank to fit): ")
+
+        if val.strip() != "":
+            fixed_values[p] = float(val)
+            
+from scipy.optimize import curve_fit
+
+fit_params = [p for p in all_params if p not in fixed_values]
+
+def wrapper(tau, *free_params):
+
+    param_dict = fixed_values.copy()
+
+    for name, value in zip(fit_params, free_params):
+        param_dict[name] = value
+
+    ordered = [param_dict[p] for p in all_params]
+
+    return model(tau, *ordered)
+
+default_guess = {
+    "N": 10,
+    "tau_D": 0.1,
+    "tau_D2": 1.0,
+    "F2": 0.5,
+    "K": 5,
+    "F_T": 0.1,
+    "tau_T": 0.001,
+    "DC": 0
+}
+
+p0 = [default_guess[p] for p in fit_params]
+
+popt, pcov = curve_fit(
+    wrapper,
+    tau_data,
+    G_data,
+    p0=p0,
+    maxfev=20000
+)
+
+results = fixed_values.copy()
+
+for name, value in zip(fit_params, popt):
+    results[name] = value
+
+print("\n===== FIT RESULTS =====")
+
+for p in all_params:
+    print(f"{p} = {results[p]}")
+    
+
+x_fit = np.logspace(
+    np.log10(tau_data.min()),
+    np.log10(tau_data.max()),
+    1000
+)
+
+y_fit = wrapper(x_fit, *popt)
+
+plt.figure(figsize=(8,5))
+
+plt.scatter(
+    tau_data,
+    G_data,
+    s=10,
+    alpha=0.5,
+    label="Data"
+)
+
+plt.plot(
+    x_fit,
+    y_fit,
+    'r-',
+    linewidth=2,
+    label=f"{model_name} Fit"
+)
+
+plt.xscale('log')
+plt.xlabel("Lag Time")
+plt.ylabel("G(t)")
+plt.legend()
+plt.show()
+
+
+# Residuals
+y_pred = wrapper(tau_data, *popt)
+residuals = G_data - y_pred
+
+plt.figure(figsize=(8,4))
+plt.axhline(0, color='black')
+
+plt.scatter(
+    tau_data,
+    residuals,
+    s=10
+)
+
+plt.xscale('log')
+plt.xlabel("Lag Time")
+plt.ylabel("Residual")
+plt.title("Residual Plot")
+plt.show()
+
