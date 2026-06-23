@@ -48,7 +48,7 @@ if file_extension == ".czi":
     full_img, dims = czi.read_image()
     shape = full_img.shape
     print("CZI loaded, shape:", full_img.shape)
-
+    ffp1d = []
     # Identify index of the "S" dimension (spots)
     # Handle case where dims might be tuples like ('S', 5) or just strings
     dim_names = []
@@ -92,16 +92,17 @@ if file_extension == ".czi":
         print(f"Spot {s+1} shape after extraction: {spot_img.shape}")
     
         # 32 detector channels per spot
-        ffp1d = [
+        ffp1d_t = [
             get_intensity(spot_img, point_index=0, detector_index=i)
             for i in range(32)
         ]
-    
-        print(f"Intensity data shape for detector 0: {ffp1d[0].shape}")
+        ffp1d.append(np.stack(ffp1d_t))
+
+        print(f"Intensity data shape for detector 0: {ffp1d_t[0].shape}")
         
         # Calculate autocorrelation for each detector
         gtau_p1d = [
-            autocorrelate(a=ffp1d[i], deltat=frame_time, normalize=True, m=10)
+            autocorrelate(a=ffp1d_t[i], deltat=frame_time, normalize=True, m=10)
             for i in range(32)
         ]
     
@@ -122,7 +123,9 @@ if file_extension == ".czi":
         plt.legend()
         plt.tight_layout()
         plt.show()
-    mean_intensity = np.mean(ffp1d, axis=0)
+    print(np.stack(ffp1d).shape)
+    all_data = np.stack(ffp1d)          # (5, 32, N)
+    mean_intensity = np.mean(all_data, axis=(0,1))
     time = np.arange(len(mean_intensity)) * frame_time
     plt.figure(figsize=(8, 5))
     plt.plot(time, mean_intensity)
@@ -143,7 +146,7 @@ elif file_extension == ".ptu":
 
     # Extract fields
     times = decoded["time"]        # macro-time
-    channels = decoded["channel"]  # detector ID
+    channels = decoded["channel"]  # detector ID  #extract intensity values
 
     # ===== BIN INTO INTENSITY TRACE =====
     # Convert macro time to seconds
@@ -152,7 +155,7 @@ elif file_extension == ".ptu":
 
 
     t_max = times_s.max()
-    bins = np.arange(0, t_max, bin_width)
+    bins = np.arange(0, t_max, bin_width)  
 
     # Get number of detectors
     n_detectors = int(channels.max()) + 1
